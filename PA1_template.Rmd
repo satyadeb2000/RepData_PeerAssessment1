@@ -1,25 +1,131 @@
+
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Assigment - Reproducable Research.rmd"
+author: "Satya Majumder"
+date: "March 12, 2019"
+output: html_document
 ---
 
+```{r echo=FALSE, results='hide'}
+  library(plyr)
+  library(lattice)
+```
 
-## Loading and preprocessing the data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Loading and Cleaning the data.....
+```{r loadData}
+    setwd("C:/Users/i376752/Desktop/personal/R assignment")
+    destfilename <- "activity.zip"
+    if (!file.exists(destfilename)){
+      sourceURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+      download.file(sourceURL, destfilename)
+    }  
+    if (!file.exists("activity.csv")) { 
+      unzip(destfilename) 
+    }
+    activity <- read.csv("activity.csv", header=TRUE,na.strings = "NA")
+    activity$day <- weekdays(as.Date(activity$date))
+    activity$DateTime<- as.POSIXct(activity$date, format="%Y-%m-%d")
+    cleanData <- activity[!is.na(activity$steps),]
+```
+
+##Printing the head of the cleaned up data
+```{r printhead}
+    print(head(cleanData))
+```
+#Working with Cleaned Data
+##Calculate Averages and Build graphs
+Total number of steps taken per day
+```{r AggrSteps}
+    StepsPerDay <- aggregate(cleanData$steps ~ cleanData$date, FUN=sum)
+    colnames(StepsPerDay)<- c("Date", "Steps")
+```
+
+Histogram of total steps per day
+```{r histogram}
+  hist(StepsPerDay$Steps,  xlab="Steps", main = "Total Steps per Day")
+```
+
+Mean of steps per day
+```{r}
+  as.integer(mean(StepsPerDay$Steps))
+```
+
+Median of steps per day
+```{r}
+  as.integer(median(StepsPerDay$Steps))
+```
+
+Time Series plot of steps per interval
+```{r}
+  StepsPerInterval <- aggregate(cleanData$steps ~ cleanData$interval, FUN=mean)
+  colnames(StepsPerInterval)<- c("Interval", "Steps")
+  plot(StepsPerInterval$Interval, StepsPerInterval$Steps, type="l", xlab = "Interval", ylab = "Steps", col = "black",  lwd=2)
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+  maxSteps <- max(StepsPerInterval$Steps)
+  StepsPerInterval[StepsPerInterval$Steps == maxSteps, 1]
+```
+
+#Working with Missing Data
+##Number of NAs in original data set
+```{r}
+  nrow(activity[is.na(activity$steps),])
+```
+##Substitute Missing Data:
+*Substitute the missing steps with the average 5-minute interval based on the day of the week.
+*Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+  avgTable <- ddply(cleanData, .(interval, day), summarize, Avg = mean(steps))
+  nadata<- activity[is.na(activity$steps),]
+  newdata<-merge(nadata, avgTable, by=c("interval", "day"))
+  newdata2<- newdata[,c(6,4,1,2,5)]
+  colnames(newdata2)<- c("steps", "date", "interval", "day", "DateTime")
+  mergeData <- rbind(cleanData, newdata2)
+  print(head(mergeData))
+```
+
+##Calculate Averages and build graphs with mising data
+Total number of steps taken each day with mising values filled in
+```{r}
+  StepsPerDay2 <- aggregate(mergeData$steps ~ mergeData$date, FUN=sum, )
+  colnames(StepsPerDay2)<- c("Date", "Steps")
+```
+
+Mean of total number of steps per day with missing values filled in
+```{r}
+  as.integer(mean(StepsPerDay2$Steps))
+```
+
+Median of total number of steps per day with missing values filled in
+```{r}
+  as.integer(median(StepsPerDay2$Steps))
+```
+
+Histogram of total steps per day, categorized by data set to show impact
+```{r}
+  hist(StepsPerDay2$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day with NAs Fixed", col="maroon")
+  hist(StepsPerDay$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day with NAs Fixed", col="blue", add=T)
+  legend("topright", c("Imputed Data", "Non-NA Data"), fill=c("maroon", "blue") )
+```
+
+The new mean of the imputed data is `r as.integer(mean(StepsPerDay2$Steps))` steps compared to the old mean of `r as.integer(mean(StepsPerDay$Steps))` steps. That creates a difference of `r as.integer(mean(StepsPerDay2$Steps)) - as.integer(mean(StepsPerDay$Steps))` steps on average per day.
+
+The new mean of the imputed data is `r as.integer(median(StepsPerDay2$Steps))` steps compared to the old mean of `r as.integer(median(StepsPerDay$Steps))` steps. That creates a difference of `r as.integer(median(StepsPerDay2$Steps)) - as.integer(median(StepsPerDay$Steps))` steps on average per day.
+
+#Are there differences in activity patterns between weekdays and weekends?
+*Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+*Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+```{r}
+  mergeData$DayCategory <- ifelse(mergeData$day %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+  intervalTable2 <- ddply(mergeData, .(interval, DayCategory), summarize, Avg = mean(steps))
+  xyplot(Avg~interval|DayCategory, data=intervalTable2, type="l",  layout = c(1,2),
+       main="Average Steps per Interval Based on Type of Day", 
+       ylab="Average Number of Steps", xlab="Interval")
+```
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
